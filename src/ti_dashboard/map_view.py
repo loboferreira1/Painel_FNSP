@@ -30,7 +30,11 @@ def _normalize_ti_key(value: str) -> str:
     return " ".join(text.split())
 
 
-def render_ti_map(geojson_path: Path, ti_portaria_map: dict[str, str] | None = None) -> None:
+def render_ti_map(
+    geojson_path: Path,
+    ti_portaria_map: dict[str, str] | None = None,
+    indireto_tis: set[str] | None = None,
+) -> None:
     if not geojson_path.exists():
         st.warning(f"GeoJSON nao encontrado: {geojson_path}")
         return
@@ -56,8 +60,21 @@ def render_ti_map(geojson_path: Path, ti_portaria_map: dict[str, str] | None = N
     )
 
     # Attach precomputed color so the deck layer can consume it declaratively.
+    direto_set: set[str] = set(ti_portaria_map.keys()) if ti_portaria_map else set()
+    indireto_set: set[str] = indireto_tis or set()
+
     for ft in features:
         props = ft.setdefault("properties", {})
+        canonical_key = _normalize_ti_key(props.get("nome_canonico", ""))
+        display_key = _normalize_ti_key(props.get("nome_exibicao", ""))
+
+        if canonical_key in direto_set or display_key in direto_set:
+            impacto = "direto"
+        elif canonical_key in indireto_set or display_key in indireto_set:
+            impacto = "indireto"
+        else:
+            impacto = ""
+        props["impacto"] = impacto
         props["fill_color"] = _fill_color(ft)
 
         if ti_portaria_map:

@@ -16,6 +16,7 @@ if str(_pkg_root) not in sys.path:
 
 from src.ti_dashboard.config import DEFAULT_CONFIG
 from src.ti_dashboard.loaders import load_portarias_csv, load_ti_municipio_table
+from src.ti_dashboard.impact_engine import classify_ti_impacts
 from src.ti_dashboard.map_view import render_ti_map
 from src.ti_dashboard.timeline import derive_validity_windows, filter_by_period
 from src.ti_dashboard.transforms import build_portaria_grain, normalize_key, parse_json_list
@@ -338,7 +339,13 @@ def main() -> None:
         )
 
     st.subheader("Mapa de Terras Indigenas")
-    render_ti_map(DEFAULT_CONFIG.ti_shapefile, ti_portaria_map=ti_portaria_map)
+    impact_df = classify_ti_impacts(period_rows, rel)
+    indireto_tis: set[str] = set(
+        impact_df.loc[impact_df["impacto"] == "indireto", "ti_nome"]
+        .astype(str)
+        .map(lambda v: _normalize_ti_key(v))
+    )
+    render_ti_map(DEFAULT_CONFIG.ti_shapefile, ti_portaria_map=ti_portaria_map, indireto_tis=indireto_tis)
 
 
 if __name__ == "__main__":
