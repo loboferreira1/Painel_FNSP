@@ -47,21 +47,10 @@ def render_ti_map(
         st.warning("O GeoJSON foi carregado, mas nao possui feicoes.")
         return
 
-    layer = pdk.Layer(
-        "GeoJsonLayer",
-        data=geojson,
-        get_fill_color="properties.fill_color",
-        get_line_color=[20, 20, 20, 180],
-        line_width_min_pixels=1,
-        pickable=True,
-        auto_highlight=True,
-        stroked=True,
-        filled=True,
-    )
-
     # Attach precomputed color so the deck layer can consume it declaratively.
     direto_set: set[str] = set(ti_portaria_map.keys()) if ti_portaria_map else set()
     indireto_set: set[str] = indireto_tis or set()
+    visible_features: list[dict] = []
 
     for ft in features:
         props = ft.setdefault("properties", {})
@@ -75,7 +64,9 @@ def render_ti_map(
         else:
             impacto = ""
         props["impacto"] = impacto
-        props["fill_color"] = _fill_color(ft)
+        if impacto in {"direto", "indireto"}:
+            props["fill_color"] = _fill_color(ft)
+            visible_features.append(ft)
 
         if ti_portaria_map:
             canonical_key = _normalize_ti_key(props.get("nome_canonico", ""))
@@ -86,6 +77,22 @@ def render_ti_map(
             )
         else:
             props["portaria_ref"] = "Sem portaria no periodo"
+
+    if not visible_features:
+        st.info("Nenhuma TI direta/indireta no periodo selecionado.")
+        return
+
+    layer = pdk.Layer(
+        "GeoJsonLayer",
+        data={"type": "FeatureCollection", "features": visible_features},
+        get_fill_color="properties.fill_color",
+        get_line_color=[20, 20, 20, 180],
+        line_width_min_pixels=1,
+        pickable=True,
+        auto_highlight=True,
+        stroked=True,
+        filled=True,
+    )
 
     view_state = pdk.ViewState(latitude=-10.0, longitude=-55.0, zoom=3.8)
 
@@ -107,4 +114,4 @@ def render_ti_map(
         use_container_width=True,
     )
 
-    st.caption(f"Poligonos de TIs renderizados: {len(features)}")
+    st.caption(f"Poligonos de TIs renderizados: {len(visible_features)}")
