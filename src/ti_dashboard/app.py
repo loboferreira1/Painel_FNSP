@@ -127,6 +127,46 @@ def _build_ti_portaria_map(df) -> dict[str, str]:
     return out
 
 
+def _build_indireto_ti_portaria_map(portarias_df, ti_municipio_df) -> dict[str, str]:
+    if portarias_df.empty or ti_municipio_df.empty:
+        return {}
+    if not {"tipo_informacao", "informacao", "portaria"}.issubset(portarias_df.columns):
+        return {}
+    if not {"ti_nome", "municipio"}.issubset(ti_municipio_df.columns):
+        return {}
+
+    mun_df = portarias_df[
+        portarias_df["tipo_informacao"].astype(str).str.lower() == "municipio"
+    ].copy()
+    if mun_df.empty:
+        return {}
+
+    mun_df["mun_key"] = mun_df["informacao"].astype(str).map(normalize_key)
+    mun_df["portaria_label"] = mun_df["portaria"].fillna("").astype(str).str.strip()
+    mun_df = mun_df[mun_df["mun_key"] != ""]
+    mun_df = mun_df[mun_df["portaria_label"] != ""]
+    if mun_df.empty:
+        return {}
+
+    rel_df = ti_municipio_df[["ti_nome", "municipio"]].copy()
+    rel_df["mun_key"] = rel_df["municipio"].astype(str).map(normalize_key)
+    rel_df["ti_key"] = rel_df["ti_nome"].astype(str).map(_normalize_ti_key)
+
+    joined = rel_df.merge(mun_df[["mun_key", "portaria_label"]], on="mun_key", how="inner")
+    if joined.empty:
+        return {}
+
+    out: dict[str, str] = {}
+    for ti_key, group in joined.groupby("ti_key"):
+        labels = sorted({v for v in group["portaria_label"].tolist() if v})
+        if not labels:
+            continue
+        shown = labels[:3]
+        suffix = " ..." if len(labels) > 3 else ""
+        out[ti_key] = ", ".join(shown) + suffix
+    return out
+
+
 def _build_state_options(df) -> list[str]:
     if "uf" not in df.columns:
         return []
@@ -302,7 +342,10 @@ def main() -> None:
     affected_tis = _extract_affected_tis(period_rows)
 
     admin_processes = _extract_admin_processes(period_rows)
-    ti_portaria_map = _build_ti_portaria_map(period_rows)
+    ti_portaria_map_direto = _build_ti_portaria_map(period_rows)
+    ti_portaria_map_indireto = _build_indireto_ti_portaria_map(period_rows, rel)
+    ti_portaria_map = dict(ti_portaria_map_indireto)
+    ti_portaria_map.update(ti_portaria_map_direto)
 
     st.sidebar.subheader("Resumo do periodo")
     st.sidebar.metric("Portarias no periodo", len(selected_urls))
