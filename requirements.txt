@@ -9,3 +9,4 @@ structlog>=24.1.0
 apscheduler>=3.10.4
 streamlit>=1.54.0
 pandas>=2.3.3
+pydeck>=0.9.1

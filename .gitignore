@@ -52,7 +52,33 @@ htmlcov/
 
 test_logs/
 
-analysis_2025/
+analysis_2025/*
+!analysis_2025/analysis_2025/
+analysis_2025/analysis_2025/*
+!analysis_2025/analysis_2025/resultados/
+analysis_2025/analysis_2025/resultados/*
+!analysis_2025/analysis_2025/resultados/dou_publications_geral_normalizado.csv
+!analysis_2025/outputs/
+analysis_2025/outputs/*
+!analysis_2025/outputs/dashboard_ready/
+analysis_2025/outputs/dashboard_ready/*
+!analysis_2025/outputs/dashboard_ready/tis_poligonais_raw.geojson
+!analysis_2025/outputs/dashboard_ready/ti_municipio_relacao.csv
+
+data/TI x Municipios_Consolidado.xlsx
+data/Terras_Indigenas_FUNAI_treated.gpkg
+data/tis_poligonais.csv
+data/tis_poligonais.xlsx
+data/ti_dashboard_dummy/municipios.geojson
+data/ti_dashboard_dummy/terras_indigenas.geojson
+run_dashboard.py
+src/enriched_crawler.py
 
 # Debug
 *.html
+*.log
+
+# Universal
+.DS_Store
+Thumbs.db
+*.tmp
