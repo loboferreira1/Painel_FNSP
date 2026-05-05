@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 import re
 import unicodedata
+import json
+import datetime
 from pathlib import Path
 
 import streamlit as st
@@ -164,12 +166,93 @@ def _count_no_period_indicated(df) -> int:
     return int(empty_mask.sum())
 
 
+_EVENT_TYPES = ["Prorrogacao", "Nova Autorizacao", "Mobilizacao", "Outro"]
+_TIPO_INFO = ["terra_indigena", "municipio", "aldeia", "sem_extracao"]
+_PROC_TIPOS = ["administrativo", "judicial"]
+_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"]
+
+
+def _render_add_portaria_form(portarias_df) -> None:
+    """Render an expander form to manually add a portaria row to the session."""
+    if "manual_portarias" not in st.session_state:
+        st.session_state["manual_portarias"] = []
+
+    with st.expander("Adicionar portaria manualmente", expanded=False):
+        with st.form("form_add_portaria", clear_on_submit=True):
+            st.markdown("**Campos obrigatorios**")
+            col1, col2 = st.columns(2)
+            portaria_num = col1.text_input("Numero da portaria *", placeholder="Ex: PORTARIA MJSP Nº 1234")
+            processo_num = col2.text_input("Numero do processo *", placeholder="Ex: 08106.001234/2025-01")
+
+            st.markdown("**Campos opcionais**")
+            col3, col4, col5 = st.columns(3)
+            data_pub = col3.date_input("Data de publicacao", value=None)
+            event_type = col4.selectbox("Tipo de evento", [""] + _EVENT_TYPES)
+            uf = col5.selectbox("UF", [""] + _UFS)
+
+            col6, col7, col8 = st.columns(3)
+            tipo_info = col6.selectbox("Tipo de informacao", [""] + _TIPO_INFO)
+            informacao = col7.text_input("Informacao (TI / municipio / aldeia)", placeholder="Ex: Terra Indigena Yanomami")
+            proc_tipo = col8.selectbox("Tipo de processo", [""] + _PROC_TIPOS)
+
+            title = st.text_input("Titulo da portaria", placeholder="Opcional")
+            texto_ref = st.text_area("Texto de referencia", placeholder="Opcional", height=80)
+
+            submitted = st.form_submit_button("Adicionar portaria")
+
+        if submitted:
+            if not portaria_num.strip():
+                st.error("O numero da portaria e obrigatorio.")
+            elif not processo_num.strip():
+                st.error("O numero do processo e obrigatorio.")
+            else:
+                fake_url = f"manual://{portaria_num.strip().replace(' ', '_')}_{processo_num.strip()}"
+                row = {
+                    "url": fake_url,
+                    "date": str(data_pub) if data_pub else None,
+                    "section": "manual",
+                    "portaria": portaria_num.strip(),
+                    "event_type": event_type or None,
+                    "title": title.strip() or None,
+                    "supported_entities": None,
+                    "texto_referencia": texto_ref.strip() or None,
+                    "processo_numero": json.dumps([processo_num.strip()]),
+                    "processo_tipo": proc_tipo or None,
+                    "datas_mencionadas": None,
+                    "tipo_informacao": tipo_info or None,
+                    "informacao": informacao.strip() or None,
+                    "uf": uf or None,
+                }
+                st.session_state["manual_portarias"].append(row)
+                st.success(f"Portaria '{portaria_num.strip()}' adicionada a sessao.")
+
+        if st.session_state["manual_portarias"]:
+            st.caption(f"{len(st.session_state['manual_portarias'])} portaria(s) adicionada(s) manualmente nesta sessao.")
+            if st.button("Limpar portarias manuais"):
+                st.session_state["manual_portarias"] = []
+                st.rerun()
+
+
+def _merge_manual_portarias(portarias_df):
+    """Merge session-state manual portarias into the main dataframe."""
+    if not st.session_state.get("manual_portarias"):
+        return portarias_df
+    import pandas as pd
+    manual_df = pd.DataFrame(st.session_state["manual_portarias"])
+    if "date" in manual_df.columns:
+        manual_df["date"] = pd.to_datetime(manual_df["date"], errors="coerce")
+    return pd.concat([portarias_df, manual_df], ignore_index=True)
+
+
 def main() -> None:
     st.title("Forca Nacional - Mapa de Impacto em TIs")
     st.caption("Painel geoespacial de acompanhamento")
 
     portarias = load_portarias_csv(DEFAULT_CONFIG.portarias_csv)
     rel = load_ti_municipio_table(DEFAULT_CONFIG.ti_municipio_table)
+
+    _render_add_portaria_form(portarias)
+    portarias = _merge_manual_portarias(portarias)
 
     min_date = None
     max_date = None
@@ -245,6 +328,14 @@ def main() -> None:
     c3.metric("Sem indicacao de TI (periodo)", no_ti_count)
 
     st.caption(f"Relacoes TI-municipio carregadas: {len(rel)}")
+
+    if st.session_state.get("manual_portarias"):
+        st.download_button(
+            label="Exportar CSV com portarias manuais",
+            data=portarias.to_csv(index=False).encode("utf-8"),
+            file_name="portarias_enriquecidas.csv",
+            mime="text/csv",
+        )
 
     st.subheader("Mapa de Terras Indigenas")
     render_ti_map(DEFAULT_CONFIG.ti_shapefile, ti_portaria_map=ti_portaria_map)
