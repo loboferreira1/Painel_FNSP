@@ -33,6 +33,7 @@ def _normalize_ti_key(value: str) -> str:
 def render_ti_map(
     geojson_path: Path,
     ti_portaria_map: dict[str, str] | None = None,
+    direto_tis: set[str] | None = None,
     indireto_tis: set[str] | None = None,
 ) -> None:
     if not geojson_path.exists():
@@ -48,7 +49,7 @@ def render_ti_map(
         return
 
     # Attach precomputed color so the deck layer can consume it declaratively.
-    direto_set: set[str] = set(ti_portaria_map.keys()) if ti_portaria_map else set()
+    direto_set: set[str] = direto_tis or set()
     indireto_set: set[str] = indireto_tis or set()
     visible_features: list[dict] = []
 

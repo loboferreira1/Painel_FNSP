@@ -383,12 +383,18 @@ def main() -> None:
 
     st.subheader("Mapa de Terras Indigenas")
     impact_df = classify_ti_impacts(period_rows, rel)
+    direto_tis: set[str] = set(ti_portaria_map_direto.keys())
     indireto_tis: set[str] = set(
         impact_df.loc[impact_df["impacto"] == "indireto", "ti_nome"]
         .astype(str)
         .map(lambda v: _normalize_ti_key(v))
     )
-    render_ti_map(DEFAULT_CONFIG.ti_shapefile, ti_portaria_map=ti_portaria_map, indireto_tis=indireto_tis)
+    render_ti_map(
+        DEFAULT_CONFIG.ti_shapefile,
+        ti_portaria_map=ti_portaria_map,
+        direto_tis=direto_tis,
+        indireto_tis=indireto_tis,
+    )
 
 
 if __name__ == "__main__":
