@@ -84,7 +84,7 @@ def render_ti_map(geojson_path: Path, ti_portaria_map: dict[str, str] | None = N
         pdk.Deck(
             layers=[layer],
             initial_view_state=view_state,
-            map_style="mapbox://styles/mapbox/light-v10",
+            map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
             tooltip=tooltip,
         ),
         use_container_width=True,
